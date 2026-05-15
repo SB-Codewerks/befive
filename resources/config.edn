@@ -1,0 +1,9 @@
+{:befive.system/mulog
+ {:publisher {:type :console-json :pretty? true}}
+
+ :befive.system/db
+ {:spec {:jdbcUrl #env DATABASE_URL
+         :maximumPoolSize 10}}
+
+ :befive.system/jwks
+ {:url #env OKTA_JWKS_URL}}
