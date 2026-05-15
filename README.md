@@ -1,10 +1,10 @@
-# befive/befive
+# SB-Codewerks/befive
 
-FIXME: my new application.
+A no-frills but extensible API gateway written in Clojure
 
 ## Installation
 
-Download from https://github.com/befive/befive
+Download from https://github.com/SB-Codewerks/befive
 
 ## Usage
 
@@ -68,6 +68,6 @@ FIXME: listing of options this app accepts.
 
 ## License
 
-Copyright © 2026 Bjt
+Copyright © 2026 Benjamin J. Thompson DBA SB-Codewerks
 
 Distributed under the [Eclipse Public License 2.0](https://www.eclipse.org/legal/epl-2.0)
