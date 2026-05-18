@@ -6,4 +6,7 @@
          :maximumPoolSize 10}}
 
  :befive.system/jwks
- {:url #env OKTA_JWKS_URL}}
+ {:url #env OKTA_JWKS_URL}
+
+ :befive.system/server
+ {:port #long #or [#env PORT "8080"]}}

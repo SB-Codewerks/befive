@@ -1,12 +1,15 @@
 (ns befive.system
-  (:require [cheshire.core :as json]
+  (:require [befive.routes :as routes]
+            [cheshire.core :as json]
             [com.brunobonacci.mulog :as u]
             [hato.client :as http]
             [integrant.core :as ig]
             [next.jdbc :as jdbc]
-            [next.jdbc.connection :as connection])
+            [next.jdbc.connection :as connection]
+            [ring.adapter.jetty :as jetty])
   (:import (com.zaxxer.hikari HikariDataSource)
-           (java.time Instant)))
+           (java.time Instant)
+           (org.eclipse.jetty.server Server)))
 
 (defmethod ig/init-key ::mulog [_ {:keys [publisher]}]
   (u/start-publisher! publisher))
@@ -32,3 +35,13 @@
     (atom {:fetched-at (Instant/now) :jwks jwks})))
 
 (defmethod ig/halt-key! ::jwks [_ _] :ok)
+
+(defmethod ig/init-key ::server [_ {:keys [port] :as deps}]
+  (u/log ::server-starting :port port)
+  (let [handler (routes/handler (dissoc deps :port))
+        server  (jetty/run-jetty handler {:port port :join? false})]
+    (u/log ::server-ready :port port)
+    server))
+
+(defmethod ig/halt-key! ::server [_ ^Server server]
+  (.stop server))
