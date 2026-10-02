@@ -1,0 +1,28 @@
+{:linters
+ {:consistent-alias
+  {:level :warning
+   :aliases {aero.core aero
+             aleph.http http
+             aleph.netty netty
+             befive.schema.core schema
+             befive.schema.defaults defaults
+             befive.schema.errors errors
+             befive.schema.meta meta
+             befive.schema.settings settings
+             clojure.java.io io
+             clojure.spec.alpha s
+             clojure.spec.gen.alpha gen
+             clojure.spec.test.alpha stest
+             clojure.string str
+             clojure.test t
+             clojure.test.check tc
+             clojure.test.check.properties prop
+             clojure.tools.build.api b
+             clojure.tools.logging log
+             integrant.core ig
+             jsonista.core j}}
+  :line-length {:level :warning :max-line-length 100}
+  :shadowed-var {:level :warning}
+  :unused-namespace {:level :warning}
+  :unused-referred-var {:level :warning}}
+ :lint-as {integrant.core/defmethod clojure.core/defmethod}}

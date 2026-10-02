@@ -1,0 +1,14 @@
+.git
+.github
+.cpcache
+.clj-kondo
+.shadow-cljs
+target
+out
+node_modules
+docs
+gateway-design
+test
+perf
+plugins
+**/*.md

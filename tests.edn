@@ -1,0 +1,14 @@
+#kaocha/v1
+{:tests
+ [{:id :unit
+   :skip-meta [:generative :integration]
+   :test-paths ["modules/schema/test"
+                "modules/core/test"
+                "modules/control-plane/test"
+                "modules/app/test"]}
+  {:id :generative
+   :focus-meta [:generative]
+   :test-paths ["modules/schema/test"]}
+  {:id :integration
+   :focus-meta [:integration]
+   :test-paths ["test/integration"]}]}

@@ -1,0 +1,11 @@
+target/
+.cpcache/
+out/
+node_modules/
+.shadow-cljs/
+.clj-kondo/.cache/
+.nrepl-port
+.lsp/
+.calva/
+THIRD_PARTY_LICENSES.md
+*.jar

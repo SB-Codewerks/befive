@@ -1,0 +1,75 @@
+{:paths ["modules/schema/src"
+         "modules/plugin-api/src"
+         "modules/policy/src"
+         "modules/openapi/src"
+         "modules/core/src"
+         "modules/core/resources"
+         "modules/gateway/src"
+         "modules/control-plane/src"
+         "modules/control-plane/resources"
+         "modules/app/src"
+         "modules/app/resources"
+         "modules/anomaly/src"
+         "modules/cli/src"
+         "modules/aws-recipe/src"
+         "modules/datadog-recipe/src"
+         "modules/script-runner/src"]
+ :deps {org.clojure/clojure {:mvn/version "1.12.6"}
+        org.clojure/tools.logging {:mvn/version "1.3.1"}
+        integrant/integrant {:mvn/version "1.0.1"}
+        aero/aero {:mvn/version "1.1.6"}
+        aleph/aleph {:mvn/version "0.9.11"}
+        metosin/jsonista {:mvn/version "1.0.1"}
+        com.github.seancorfield/next.jdbc {:mvn/version "1.3.1118"}
+        com.zaxxer/HikariCP {:mvn/version "7.1.0"}
+        org.postgresql/postgresql {:mvn/version "42.7.13"}
+        org.slf4j/slf4j-api {:mvn/version "2.0.20"}
+        ch.qos.logback/logback-classic {:mvn/version "1.6.5"}
+        net.logstash.logback/logstash-logback-encoder
+        {:mvn/version "9.0"}}
+ :aliases
+ {:dev
+  {:extra-paths ["modules/schema/test"
+                 "modules/core/test"
+                 "modules/control-plane/test"
+                 "modules/app/test"
+                 "test/integration"]
+   :extra-deps {org.clojure/tools.namespace {:mvn/version "1.5.1"}}}
+
+  :test
+  {:extra-paths ["modules/schema/test"
+                 "modules/core/test"
+                 "modules/control-plane/test"
+                 "modules/app/test"
+                 "test/integration"]
+   :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
+                org.clojure/test.check {:mvn/version "1.1.3"}
+                org.testcontainers/testcontainers {:mvn/version "1.21.4"}
+                org.testcontainers/jdbc {:mvn/version "1.21.4"}
+                org.testcontainers/postgresql {:mvn/version "1.21.4"}}
+   :main-opts ["-m" "kaocha.runner"]}
+
+  :build
+  {:deps {io.github.clojure/tools.build {:mvn/version "0.10.14"}
+          org.clojure/tools.namespace {:mvn/version "1.5.1"}}
+   :ns-default build}
+
+  :lint
+  {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2026.08.04"}}
+   :main-opts ["-m" "clj-kondo.main"
+               "--lint" "modules" "test" "build.clj"
+               "--fail-level" "warning"]}
+
+  :fmt
+  {:extra-deps {dev.weavejester/cljfmt {:mvn/version "0.16.6"}}
+   :main-opts ["-m" "cljfmt.main"]}
+
+  :outdated
+  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.11.1276"}}
+   :main-opts ["-m" "antq.core"]}
+
+  :cljs
+  {:extra-paths ["modules/console/src" "modules/schema/test"]
+   :extra-deps {org.clojure/clojurescript {:mvn/version "1.12.145"}
+                org.clojure/test.check {:mvn/version "1.1.3"}
+                thheller/shadow-cljs {:mvn/version "3.5.4"}}}}}

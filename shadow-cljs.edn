@@ -1,0 +1,17 @@
+{:deps {:aliases [:cljs]}
+ :builds
+ {:console
+  {:target :browser
+   :output-dir "target/console"
+   :asset-path "/console"
+   :modules {:main {:init-fn befive.console.core/init}}}
+  :portal
+  {:target :browser
+   :output-dir "target/portal"
+   :asset-path "/portal"
+   :modules {:main {:init-fn befive.portal.core/init}}}
+  :test
+  {:target :node-test
+   :output-to "out/test.js"
+   :ns-regexp "-test$"
+   :autorun true}}}
