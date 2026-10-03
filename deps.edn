@@ -41,13 +41,16 @@
         software.amazon.awssdk/url-connection-client
         {:mvn/version "2.55.11"
          :exclusions [software.amazon.awssdk/netty-nio-client
-                      software.amazon.awssdk/apache5-client]}}
+                      software.amazon.awssdk/apache5-client]}
+        com.cognitect/transit-clj {:mvn/version "1.0.333"}
+        io.swagger.parser.v3/swagger-parser {:mvn/version "2.1.48"}}
  :aliases
  {:dev
   {:extra-paths ["modules/schema/test"
                  "modules/core/test"
                  "modules/gateway/test"
                  "modules/control-plane/test"
+                 "modules/openapi/test"
                  "modules/app/test"
                  "test/integration"]
    :extra-deps {org.clojure/tools.namespace {:mvn/version "1.5.1"}}}
@@ -57,6 +60,7 @@
                  "modules/core/test"
                  "modules/gateway/test"
                  "modules/control-plane/test"
+                 "modules/openapi/test"
                  "modules/app/test"
                  "test/integration"]
    :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}

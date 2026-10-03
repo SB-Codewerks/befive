@@ -93,7 +93,7 @@
             targets (atom {})
             node-id "node-sync"]
         (try
-          (is (= {:applied 2} (migrate/run-migrations! started)))
+          (is (= {:applied 3} (migrate/run-migrations! started)))
           (is (= 1 (schema-version ds)))
           (targets/reconcile! targets {})
           (let [running (sync/start

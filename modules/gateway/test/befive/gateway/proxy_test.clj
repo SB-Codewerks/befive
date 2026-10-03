@@ -3,6 +3,7 @@
             [aleph.netty :as netty]
             [befive.core.json :as json]
             [befive.core.server :as server]
+            [befive.openapi.core :as openapi]
             [befive.gateway.access-log :as access-log]
             [befive.gateway.compile :as compile]
             [befive.gateway.pipeline :as pipeline]
@@ -376,3 +377,166 @@
         (server/stop bound)
         (stop-gateway! gateway)
         (close! upstream)))))
+
+(def orders-spec
+  (str "openapi: 3.0.3\n"
+       "info:\n"
+       "  title: Orders\n"
+       "  version: \"2.0.0\"\n"
+       "paths:\n"
+       "  /orders:\n"
+       "    get:\n"
+       "      operationId: listOrders\n"
+       "      responses:\n"
+       "        \"200\":\n"
+       "          description: ok\n"))
+
+(defn- imported-orders
+  [version deprecation]
+  (let [result (openapi/import-text
+                orders-spec
+                {:api "orders"
+                 :version version
+                 :service "orders-svc"
+                 :owners [{:group "platform"}]
+                 :state :published
+                 :source :upload})]
+    (cond-> result
+      deprecation (assoc-in [:version :deprecation] deprecation))))
+
+(defn- wait-entry
+  "The first log map that satisfies `pred`. `some` is the wrong tool
+  here: a predicate that returns true makes `some` return true."
+  [gateway pred]
+  (loop [left 40]
+    (let [hit (first (filter pred @(:logs gateway)))]
+      (cond
+        hit hit
+        (zero? left) nil
+        :else (do (Thread/sleep 20)
+                  (recur (dec left)))))))
+
+(deftest imported-spec-routes-v1-and-deprecated-v2
+  (let [seen (atom [])
+        server (listen (fn [request]
+                         (swap! seen conj (:uri request))
+                         {:status 200 :body "ok" :headers {}}))
+        url (str "http://127.0.0.1:" (port-of server))
+        v2-policy {:deprecated-at "2026-10-01T00:00:00Z"
+                   :sunset-at "2027-04-01T00:00:00Z"
+                   :link "https://example.com/migrate"}
+        domain (-> {:services [{:id "orders-svc"
+                                :name "Orders"
+                                :upstream "up"}]}
+                   (openapi/apply-import (imported-orders "v1" nil))
+                   (openapi/apply-import (imported-orders "v2" v2-policy)))
+        gateway (open-gateway {:revision 1
+                               :upstreams [(http-upstream url)]
+                               :domain domain})]
+    (try
+      (let [v1 (await-response gateway (ring :get "/v1/orders" {} nil))
+            v2 (await-response gateway (ring :get "/v2/orders" {} nil))
+            entry (wait-entry gateway #(= "v2" (:api_version %)))]
+        (is (= 200 (:status v1)))
+        (is (nil? (get (:headers v1) "deprecation")))
+        (is (= 200 (:status v2)))
+        (is (= "@1790812800" (get (:headers v2) "deprecation")))
+        (is (= "Thu, 01 Apr 2027 00:00:00 GMT"
+               (get (:headers v2) "sunset")))
+        (is (str/includes? (str (get (:headers v2) "link")) "deprecation"))
+        (is (= #{"/v1/orders" "/v2/orders"} (set @seen)))
+        (is (= "path" (:version_selected_by entry)))
+        (is (true? (:deprecated entry))))
+      (finally
+        (stop-gateway! gateway)
+        (close! server)))))
+
+(deftest upstream-deprecation-header-wins
+  (let [server (listen (fn [_]
+                         {:status 200
+                          :body "ok"
+                          :headers {"deprecation" "from-upstream"}}))
+        url (str "http://127.0.0.1:" (port-of server))
+        gateway (open-gateway
+                 {:revision 1
+                  :routes [{:id "old"
+                            :methods #{:get}
+                            :path "/old"
+                            :upstream "up"
+                            :deprecation "@1"
+                            :sunset "Wed, 01 Jan 2031 00:00:00 GMT"}]
+                  :upstreams [(http-upstream url)]})]
+    (try
+      (let [response (await-response gateway (ring :get "/old" {} nil))]
+        (is (= "from-upstream" (get (:headers response) "deprecation")))
+        (is (= "Wed, 01 Jan 2031 00:00:00 GMT"
+               (get (:headers response) "sunset"))))
+      (finally
+        (stop-gateway! gateway)
+        (close! server)))))
+
+(deftest unknown-header-version-is-a-minimal-400
+  (let [gateway (open-gateway
+                 {:revision 1
+                  :upstreams [(http-upstream "http://127.0.0.1:9")]
+                  :domain
+                  {:apis [{:id "orders"
+                           :name "Orders"
+                           :owners [{:group "platform"}]
+                           :versioning {:strategy :header
+                                        :header {:name "api-version"}
+                                        :default-version "v1"}}]
+                   :services [{:id "orders-svc"
+                               :name "Orders"
+                               :upstream "up"}]
+                   :versions [{:api "orders" :id "v1"
+                               :service "orders-svc" :state :published}]
+                   :operations [{:api "orders" :version "v1"
+                                 :id "list-orders" :method :get
+                                 :path "/orders"}]}})]
+    (try
+      (let [response (await-response
+                      gateway
+                      (ring :get "/orders" {"api-version" "v9"} nil))
+            body (json/read-str (:body response))
+            entry (wait-entry gateway #(= "version.unknown" (:error %)))]
+        (is (= 400 (:status response)))
+        (is (= #{:error :request_id} (set (keys body))))
+        (is (= "bad_request" (:error body)))
+        (is (= "version.unknown" (:error entry))))
+      (finally
+        (stop-gateway! gateway)))))
+
+(deftest query-version-is-removed-before-the-upstream
+  (let [seen (atom nil)
+        server (listen (fn [request]
+                         (reset! seen (:query-string request))
+                         {:status 200 :body "ok" :headers {}}))
+        url (str "http://127.0.0.1:" (port-of server))
+        gateway (open-gateway
+                 {:revision 1
+                  :upstreams [(http-upstream url)]
+                  :domain
+                  {:apis [{:id "orders"
+                           :name "Orders"
+                           :owners [{:group "platform"}]
+                           :versioning {:strategy :query
+                                        :query {:name "api-version"}
+                                        :default-version "v1"}}]
+                   :services [{:id "orders-svc"
+                               :name "Orders"
+                               :upstream "up"}]
+                   :versions [{:api "orders" :id "v2"
+                               :service "orders-svc" :state :published}]
+                   :operations [{:api "orders" :version "v2"
+                                 :id "list-orders" :method :get
+                                 :path "/orders"}]}})]
+    (try
+      (let [request (assoc (ring :get "/orders" {} nil)
+                           :query-string "api-version=v2&x=1")
+            response (await-response gateway request)]
+        (is (= 200 (:status response)))
+        (is (= "x=1" @seen)))
+      (finally
+        (stop-gateway! gateway)
+        (close! server)))))

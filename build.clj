@@ -32,6 +32,7 @@
 
 (def reflection-nses
   '[befive.core.json
+    befive.core.codec
     befive.core.response
     befive.core.health
     befive.core.logging
@@ -423,9 +424,15 @@
       (str/starts-with? n "befive.plugin.")
       (remove #(allowed-prefix? % ["befive.schema."]) requires)
 
-      (or (str/starts-with? n "befive.policy.")
-          (str/starts-with? n "befive.openapi."))
+      (str/starts-with? n "befive.policy.")
       (remove #(allowed-prefix? % ["befive.schema."]) requires)
+
+      ;; OpenAPI may call its own namespaces. The parser is Java-only
+      ;; and the mapper stays on schema, so the module still does not
+      ;; see the gateway or the control plane.
+      (str/starts-with? n "befive.openapi.")
+      (remove #(allowed-prefix? % ["befive.schema." "befive.openapi."])
+              requires)
 
       (str/starts-with? n "befive.gateway.")
       (bad #(str/starts-with? (str %) "befive.cp."))

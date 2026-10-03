@@ -2,6 +2,7 @@
   "Pure snapshot compile. Failure throws and the caller keeps the
   previous revision. This namespace does not open pools."
   (:require [befive.gateway.router :as router]
+            [befive.schema.compile :as versions]
             [befive.schema.errors :as errors]
             [befive.schema.route :as route]
             [clojure.string :as str]))
@@ -70,9 +71,13 @@
     (into {} (remove (fn [[_ v]] (nil? v))) document)))
 
 (defn compile-snapshot
-  "Compile `document` or throw. The result is safe to publish."
+  "Compile `document` or throw. The result is safe to publish.
+  Domain records live under `:domain`. `:apis` stays the size-limit map."
   [document]
-  (let [document (normalize document)]
+  (let [expanded (versions/expand (or document {}))
+        groups (:version-groups expanded)
+        domain (:domain expanded)
+        document (normalize (dissoc expanded :version-groups :domain))]
     (when-let [problems (errors/explain->problems ::route/snapshot document)]
       (throw (ex-info "snapshot rejected"
                       {:problems problems})))
@@ -84,14 +89,16 @@
       (when (seq missing)
         (throw (ex-info "route upstream is missing"
                         {:routes missing})))
-      {:revision (:revision document)
-       :routers (router/compile-routes (:routes document))
-       :upstreams upstreams
-       :limits (:limits document)
-       :apis (:apis document)
-       :trusted-proxies (:trusted-proxies document)
-       :routes (:routes document)
-       :document document})))
+      (cond-> {:revision (:revision document)
+               :routers (router/compile-routes (:routes document))
+               :upstreams upstreams
+               :limits (:limits document)
+               :apis (:apis document)
+               :trusted-proxies (:trusted-proxies document)
+               :routes (:routes document)
+               :document document}
+        domain (assoc :domain domain)
+        (seq groups) (assoc :version-groups groups)))))
 
 (defn empty-table
   []

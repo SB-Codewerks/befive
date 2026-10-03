@@ -394,3 +394,59 @@ Context: LocalStack 4.14 runs Lambda functions by starting containers through th
 Choice: The Lambda integration test and the compose LocalStack service bind `/var/run/docker.sock` and set the Docker security option `label=disable`. That option is a no-op where SELinux is disabled.
 Why: The function runtime container is started by the host daemon. Disabling the label on the LocalStack container is the usual way to let it use the socket without relabeling the host socket.
 Revert: Remove `label=disable` and the compose socket mount. On an enforcing host, relabel the socket so a confined container may connect.
+
+### A-20 (2026-10-03, M3) Domain rows live under `:domain`
+
+Context: The M2 snapshot key `:apis` is the slug to size-limits map, and `config_change` entity `"api"` updates that map. The domain model also calls its product entity an API. Putting those rows in `:apis` would fail the closed `::route/snapshot` spec and change the sync entity.
+Choice: Domain records live under `:domain`. Gateway compile removes `:domain` and `:version-groups` before snapshot validation, then stores both on the compiled table. Entity `"api"` still means size limits. The new specs are feature level 1 (H-1) and are registered with `:since 1`.
+Why: The hot path keeps one immutable route table, and the M2 sync contract stays valid.
+Revert: Move the rows to a new snapshot key and teach sync a second entity. Do not reuse `"api"`.
+
+### A-21 (2026-10-03, M3) Default path template is `/{version}`
+
+Context: domain-model.md and 02 §27 sketch the path template as `/v{version}`. Version id `v2` under that template compiles to `/vv2`. The routes people ask for are `/v1` and `/v2`.
+Choice: `versioning-of` defaults to `{:strategy :path :path {:template "/{version}"}}`. `{version}` is replaced literally. A document may still set `"/v{version}"` and use the id `2`.
+Why: The id stored on the version is the path segment callers use.
+Revert: Change the default template in `versioning-of` back to `"/v{version}"`.
+
+### A-22 (2026-10-03, M3) Deprecation timestamps are RFC 3339 strings
+
+Context: JSON, EDN and Transit have to share one document. `#inst` needs a Transit handler and does not come back from jsonista as an instant.
+Choice: `:deprecated-at` and `:sunset-at` match `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z`. Compile turns them into `Deprecation: @<unix>` and an IMF-fix `Sunset` date.
+Why: One UTC string needs no codec handlers.
+Revert: Accept `#inst` in EDN and add JSON and Transit handlers.
+
+### A-23 (2026-10-03, M3) Unknown versions use the minimal error body
+
+Context: 02 §27 names `400 version.unknown` and shows a problem+json body that lists known versions. AGENTS.md §8.5 says a gateway error is the minimal JSON body, and the reason goes only to the access log.
+Choice: An unknown header or query token is HTTP 400, body `{error, request_id}`, access-log reason `version.unknown`. An Accept value that matches the media pattern but names no version is HTTP 406 with reason `version.unknown_media_type`. A path or host miss stays 404.
+Why: The security must-do wins, and a version list would tell clients which versions exist.
+Revert: Return the problem+json body from `errors/fail` for these two reasons only.
+
+### A-24 (2026-10-03, M3) Operation backends are proxy only
+
+Context: API-009 Lambda is a property of the service upstream. 02 also sketches composite, async and mock backends. Those are 1.0.
+Choice: Operation `:backend` is `{:kind :proxy}` plus an optional `:upstream-path`. That path is copied onto the route, and the proxy prefers it over the request URI. Lambda stays on the upstream.
+Why: The 0.x data plane is a reverse proxy. Another backend kind would start a 1.0 feature.
+Revert: Extend `:befive.schema.domain.backend/kind` when composites land.
+
+### A-25 (2026-10-03, M3) Deprecation headers follow the policy fields
+
+Context: A version can stay `:published` and still carry a deprecation policy. The eval prompt does that for v2. An upstream may already send `Deprecation`, `Sunset` or `Link`.
+Choice: Compile emits the headers when the policy fields are present, and sets `:deprecated true` when the state is `:deprecated` or the policy has `deprecated-at`, `sunset-at` or `link`. `lifecycle-leave` fills a header only when that header is absent, so the upstream wins. An operation policy replaces the version policy. Sunset does not retire the version.
+Why: The demo has to show the headers on a published version, and a field merge would hide an operation that clears one field.
+Revert: Send the headers only for lifecycle `:deprecated`, and merge the two policy maps field by field.
+
+### A-26 (2026-10-03, M3) Selector versions share one route
+
+Context: Header, query and media-type versions share one path. The M2 router keeps one route per host, method and path. The query token must not be forwarded unless asked, and it does not set `Vary`. `*/*` is not a media-type version.
+Choice: The router stores one representative, preferring the default version. The candidates live in `:version-groups` under `"<api> <operation-id>"`. `choose` runs inside `limits-enter` after the match and before the limits. There is no new pipeline phase. Query selection sets `:strip-query` unless `:query {:forward true}`, and the proxy strips it so the access log still records the client query. Header selection sets `Vary` to the header name. Media selection sets `Vary` to `accept`, checks `Accept`, then `Content-Type`, and lets `*/*` fall through to the default.
+Why: The M2 phase order stays put, and the access line still shows the query the client sent.
+Revert: Add a pipeline phase and stop stripping the parameter in the proxy.
+
+### A-27 (2026-10-03, M3) Codecs, OpenAPI parser and path keys
+
+Context: The schema module cannot depend on jsonista or Transit. OpenAPI import needs a parser, and remote `$ref` must not be fetched. `(keyword "/orders/{id}")` drops the leading slash, so path keys cannot be keywords. `:organizations` is both a visibility set of slugs and the document vector of organization maps. Policy locks, and their table, are M4. Swagger 2 is not a 0.x format.
+Choice: `befive.core.codec` uses transit-clj 1.0.333 for EDN, JSON and Transit. JSON restores known enums, and restores a known set only when every element is a string or keyword. swagger-parser 2.1.48 parses OpenAPI 3.0 and 3.1. `jackson-core` and `jackson-databind` stay on the pinned 2.22.3. The parser brings `jackson-dataformat-yaml` 2.22.1 as a transitive artifact. Remote `$ref` values are rewritten to a local marker before parse, and resolve stays off. Object keys that contain `/` stay strings. The visibility slug set is `:befive.schema.domain.visibility/organizations`, so it does not overwrite `::organizations`. The policy-attachment spec exists; its SQL waits for M4. A document whose root has `:swagger` is a warning and is not converted. `befive.openapi.core` may require `befive.openapi.*`.
+Why: Codecs stay in core so schema remains `.cljc`. Rewriting refs in the text is what stops the parser from opening a network connection. The set guard keeps an organization vector a vector. Route ids use a pure SHA-256 so the gateway and the console hash the same bytes. JavaScript masks a shift count to 5 bits, and `(int "a")` is 0 there, so the implementation shifts in steps of 31 and reads UTF-16 code units.
+Revert: Drop the two direct pins, delete `befive.core.codec`, and add `policy_attachment` in the M4 migration.

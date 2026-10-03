@@ -19,10 +19,33 @@
 (s/def ::priority int?)
 (s/def :befive.schema.route.ref/upstream ::schema/non-blank-string)
 (s/def ::api ::schema/slug)
+(s/def ::api-version ::schema/slug)
+(s/def ::operation ::schema/slug)
+(s/def ::deprecated boolean?)
 (s/def ::lifecycle #{:active :deprecated :retired})
 (s/def ::deprecation ::schema/non-blank-string)
 (s/def ::sunset ::schema/non-blank-string)
-(s/def ::link ::schema/non-blank-string)
+(s/def ::link
+  (s/and string? #(not (str/blank? %)) #(<= (count %) 4600)))
+(s/def ::vary ::schema/non-blank-string)
+(s/def ::version-selected-by
+  #{:path :host :header :query :media-type :default})
+(s/def ::upstream-path ::path)
+(s/def ::strip-query ::schema/non-blank-string)
+(s/def ::strategy #{:path :host :header :media-type :query})
+(s/def ::token ::schema/slug)
+(s/def ::default boolean?)
+(s/def ::header ::schema/header-name)
+(s/def ::query ::schema/non-blank-string)
+(s/def ::media ::schema/non-blank-string)
+(s/def ::forward boolean?)
+(s/def ::aliases (s/map-of ::schema/non-blank-string ::schema/slug))
+(s/def ::group ::schema/non-blank-string)
+(s/def ::version-select
+  (s/and (s/keys :req-un [::strategy]
+                 :opt-un [::group ::token ::default ::header ::query
+                          ::media ::forward ::aliases ::vary])
+         (schema/closed-spec ::version-select {})))
 (s/def ::max-request-bytes (s/int-in 1 67108865))
 (s/def ::max-response-bytes (s/int-in 1 67108865))
 (s/def ::max-header-bytes (s/int-in 1 1048577))
@@ -35,8 +58,11 @@
 (s/def ::route
   (s/and (s/keys :req-un [::id ::methods ::path
                           :befive.schema.route.ref/upstream]
-                 :opt-un [::host ::priority ::api ::lifecycle
-                          ::deprecation ::sunset ::link ::limits])
+                 :opt-un [::host ::priority ::api ::api-version
+                          ::operation ::deprecated ::lifecycle
+                          ::deprecation ::sunset ::link ::vary
+                          ::strip-query ::version-select ::limits
+                          ::version-selected-by ::upstream-path])
          (schema/closed-spec ::route {})))
 
 (s/def ::url ::schema/http-url)

@@ -12,6 +12,7 @@
             [befive.gateway.lambda.aws :as aws]
             [befive.gateway.limits :as limits]
             [befive.gateway.targets :as targets]
+            [befive.schema.compile :as versions]
             [clojure.string :as str]
             [manifold.deferred :as d]
             [manifold.stream :as s])
@@ -68,6 +69,21 @@
     (if (neg? port)
       (.getHost uri)
       (str (.getHost uri) ":" port))))
+
+(defn- upstream-request
+  "Path and query the upstream sees. The client request is unchanged."
+  [ctx]
+  (let [request (:request ctx)
+        route (:route ctx)
+        param (:strip-query route)
+        query (if param
+                (versions/strip-query (:query-string request) param)
+                (:query-string request))]
+    (assoc request
+           :upstream-uri (or (:upstream-path route)
+                             (:uri request)
+                             (:path request))
+           :query-string query)))
 
 (defn join-url
   [base path query]
@@ -137,7 +153,9 @@
 (defn- send-once
   [pool request upstream target headers]
   (let [url (join-url (:url target)
-                      (or (:uri request) (:path request))
+                      (or (:upstream-uri request)
+                          (:uri request)
+                          (:path request))
                       (:query-string request))
         method (:request-method request)]
     (http/request
@@ -190,7 +208,7 @@
                   (d/catch
                    (d/chain
                     (send-once (pool-for (:pools state) upstream)
-                               (:request ctx)
+                               (upstream-request ctx)
                                upstream
                                chosen
                                (or (:upstream-headers ctx)
@@ -249,7 +267,7 @@
                 (d/catch
                  (d/chain
                   (http/websocket-client
-                   (ws-url chosen (:request ctx))
+                   (ws-url chosen (upstream-request ctx))
                    {:headers (or (:upstream-headers ctx)
                                  (forward-headers ctx))})
                   (fn [remote]

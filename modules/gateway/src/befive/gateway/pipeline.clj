@@ -10,6 +10,7 @@
             [befive.gateway.net :as net]
             [befive.gateway.proxy :as proxy]
             [befive.gateway.router :as router]
+            [befive.schema.compile :as versions]
             [befive.gateway.targets :as targets]
             [clojure.string :as str]
             [manifold.deferred :as d])
@@ -115,10 +116,16 @@
                                                      "host")
                                :method (:request-method request)
                                :path path})
-        route (when (= :matched (:status matched))
-                (:route matched))
+        matched-route (when (= :matched (:status matched))
+                        (:route matched))
+        chosen (when matched-route
+                 (versions/choose matched-route request
+                                  (or (:version-groups table) {})))
+        failed? (and chosen (:selection-error chosen))
+        route (when (and chosen (not failed?)) chosen)
         limits (limits/effective table route)
-        problem (limits/request-problem (:headers request) limits)
+        problem (when-not failed?
+                  (limits/request-problem (:headers request) limits))
         ctx (assoc ctx
                    :match matched
                    :route route
@@ -127,10 +134,15 @@
                                   {})
                    :limits limits
                    :bytes-in (limits/content-length (:headers request)))]
-    (if problem
+    (cond
+      failed?
+      (errors/fail ctx (:error chosen) (:selection-error chosen))
+
+      problem
       (assoc (errors/fail ctx (first problem) (second problem))
              :limit-rejected true)
-      ctx)))
+
+      :else ctx)))
 
 (defn- allow-header
   [verbs]
@@ -155,21 +167,30 @@
 
         :else ctx))))
 
+(defn- header-present?
+  [headers wanted]
+  (let [lowered (headers/header-name wanted)]
+    (some (fn [[header-name _value]]
+            (= lowered (headers/header-name header-name)))
+          headers)))
+
+(defn- put-absent
+  [headers header value]
+  (if (or (nil? value) (header-present? headers header))
+    headers
+    (assoc headers header value)))
+
 (defn- lifecycle-leave
   [ctx]
-  (let [route (:route ctx)
-        response (:response ctx)]
-    (if (and response (= :deprecated (:lifecycle route)))
+  (let [route (:route ctx)]
+    (if (:response ctx)
       (update-in ctx [:response :headers]
                  (fn [current]
-                   (merge (or current {})
-                          (cond-> {}
-                            (:deprecation route)
-                            (assoc "deprecation" (:deprecation route))
-                            (:sunset route)
-                            (assoc "sunset" (:sunset route))
-                            (:link route)
-                            (assoc "link" (:link route))))))
+                   (-> (or current {})
+                       (put-absent "deprecation" (:deprecation route))
+                       (put-absent "sunset" (:sunset route))
+                       (put-absent "link" (:link route))
+                       (put-absent "vary" (:vary route)))))
       ctx)))
 
 (defn- request-transform

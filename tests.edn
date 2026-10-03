@@ -5,6 +5,7 @@
    :test-paths ["modules/schema/test"
                 "modules/core/test"
                 "modules/control-plane/test"
+                "modules/openapi/test"
                 "modules/app/test"
                 "modules/gateway/test"]}
   {:id :generative

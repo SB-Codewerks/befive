@@ -82,6 +82,8 @@ A conflict check covers derived and hand-written routes together and names both 
 ## Versioning and deprecation (02 §27), 0.x
 
 - Strategies are `:path` (the default, `/v{version}`), `:host`, `:header`, `:media-type` and `:query`, with `:default-version` and `:aliases`.
+
+Build note (M3, A-20 and A-21): compiled domain rows live under snapshot `:domain`. `:apis` stays the size-limit map, and `config_change` entity `"api"` still updates that map. The compiled default path template is `"/{version}"`, so version id `v2` is the prefix `/v2`. The sketch `/v{version}` is still available by setting the template and using a numeric id. Deprecation timestamps are RFC 3339 `Z` strings (A-22). Policy-attachment SQL waits for M4; the spec is in 0.x.
   - An unknown explicit version → `400 version.unknown` (header/query) or `406` (media type).
   - Responses vary on the selecting header.
 - Access-log fields: `api_version`, `version_selected_by`.

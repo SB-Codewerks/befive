@@ -22,6 +22,6 @@
 
 (deftest classpath-lists-numbered-migrations
   (let [found (migrate/migrations)]
-    (is (= [1 2] (mapv :id found)))
-    (is (= ["init" "config"] (mapv :description found)))
+    (is (= [1 2 3] (mapv :id found)))
+    (is (= ["init" "config" "domain"] (mapv :description found)))
     (is (= 2 (count (:statements (first found)))))))

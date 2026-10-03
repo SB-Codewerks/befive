@@ -62,7 +62,11 @@
                 :lambda_request_id (:lambda-request-id ctx)
                 :lambda_function_error (:lambda-function-error ctx)
                 :node_id (:node-id ctx)
-                :revision (:revision ctx)}]
+                :revision (:revision ctx)
+                :api_version (:api-version route)
+                :version_selected_by (some-> (:version-selected-by route)
+                                             name)
+                :deprecated (when (:deprecated route) true)}]
     (into {} (remove (fn [[_ value]] (nil? value))) values)))
 
 (defn- default-sink
