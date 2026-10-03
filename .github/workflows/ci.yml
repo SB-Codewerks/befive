@@ -15,7 +15,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-          cache: maven
       - name: Install Clojure CLI
         run: |
           curl -fsSL -o /tmp/linux-install.sh \
@@ -32,7 +31,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-          cache: maven
       - name: Install Clojure CLI
         run: |
           curl -fsSL -o /tmp/linux-install.sh \
@@ -49,7 +47,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-          cache: maven
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -72,7 +69,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-          cache: maven
       - name: Install Clojure CLI
         run: |
           curl -fsSL -o /tmp/linux-install.sh \
@@ -88,7 +84,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-          cache: maven
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -109,7 +104,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-          cache: maven
       - name: Install Clojure CLI
         run: |
           curl -fsSL -o /tmp/linux-install.sh \
@@ -125,7 +119,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-          cache: maven
       - name: Install Clojure CLI
         run: |
           curl -fsSL -o /tmp/linux-install.sh \
@@ -163,7 +156,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-          cache: maven
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
