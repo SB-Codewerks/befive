@@ -19,7 +19,7 @@ jobs:
         run: |
           curl -fsSL -o /tmp/linux-install.sh \
             https://github.com/clojure/brew-install/releases/download/1.12.6.1673/linux-install.sh
-          bash /tmp/linux-install.sh
+          sudo bash /tmp/linux-install.sh
       - run: clojure -M:lint
       - run: clojure -M:fmt check
 
@@ -35,7 +35,7 @@ jobs:
         run: |
           curl -fsSL -o /tmp/linux-install.sh \
             https://github.com/clojure/brew-install/releases/download/1.12.6.1673/linux-install.sh
-          bash /tmp/linux-install.sh
+          sudo bash /tmp/linux-install.sh
       - run: clojure -M:test --focus :unit
       - run: clojure -M:test --focus :generative
 
@@ -55,7 +55,7 @@ jobs:
         run: |
           curl -fsSL -o /tmp/linux-install.sh \
             https://github.com/clojure/brew-install/releases/download/1.12.6.1673/linux-install.sh
-          bash /tmp/linux-install.sh
+          sudo bash /tmp/linux-install.sh
       - run: npm ci
       - run: npx shadow-cljs compile test && node out/test.js
       - run: npx shadow-cljs release console portal
@@ -73,7 +73,7 @@ jobs:
         run: |
           curl -fsSL -o /tmp/linux-install.sh \
             https://github.com/clojure/brew-install/releases/download/1.12.6.1673/linux-install.sh
-          bash /tmp/linux-install.sh
+          sudo bash /tmp/linux-install.sh
       - run: clojure -M:test --focus :integration
 
   licenses:
@@ -92,7 +92,7 @@ jobs:
         run: |
           curl -fsSL -o /tmp/linux-install.sh \
             https://github.com/clojure/brew-install/releases/download/1.12.6.1673/linux-install.sh
-          bash /tmp/linux-install.sh
+          sudo bash /tmp/linux-install.sh
       - run: npm ci
       - run: clojure -T:build licenses
 
@@ -108,7 +108,7 @@ jobs:
         run: |
           curl -fsSL -o /tmp/linux-install.sh \
             https://github.com/clojure/brew-install/releases/download/1.12.6.1673/linux-install.sh
-          bash /tmp/linux-install.sh
+          sudo bash /tmp/linux-install.sh
       - run: clojure -T:build module-deps
 
   uber:
@@ -123,7 +123,7 @@ jobs:
         run: |
           curl -fsSL -o /tmp/linux-install.sh \
             https://github.com/clojure/brew-install/releases/download/1.12.6.1673/linux-install.sh
-          bash /tmp/linux-install.sh
+          sudo bash /tmp/linux-install.sh
       - run: clojure -T:build uber
 
   docker:
@@ -164,7 +164,7 @@ jobs:
         run: |
           curl -fsSL -o /tmp/linux-install.sh \
             https://github.com/clojure/brew-install/releases/download/1.12.6.1673/linux-install.sh
-          bash /tmp/linux-install.sh
+          sudo bash /tmp/linux-install.sh
       - run: npm ci
       - run: clojure -T:build licenses
       - run: clojure -T:build sbom
