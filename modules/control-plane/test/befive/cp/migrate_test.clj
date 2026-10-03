@@ -20,8 +20,8 @@
                "insert into t (id) values (1);"))))
   (is (= [] (migrate/split-sql "-- only a comment\n"))))
 
-(deftest classpath-lists-the-init-migration
+(deftest classpath-lists-numbered-migrations
   (let [found (migrate/migrations)]
-    (is (= [1] (map :id found)))
-    (is (= ["init"] (map :description found)))
+    (is (= [1 2] (mapv :id found)))
+    (is (= ["init" "config"] (mapv :description found)))
     (is (= 2 (count (:statements (first found)))))))

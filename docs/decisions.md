@@ -302,4 +302,95 @@ Revert: Replace the writer with the CycloneDX CLI or the cyclonedx-maven plugin 
 Context: deployment-docker.md §3 names Postgres 16, Redis 7, LocalStack, a mock IdP, an echo upstream, and optional Toxiproxy. It does not pin image tags or the mock port. LocalStack's current tags are dated (`2026.08.5`), not `4`.
 Choice: Compose uses `postgres:16-alpine`, `redis:7-alpine`, `localstack/localstack:2026.08.5` (services `iam,kms,lambda`), `ghcr.io/shopify/toxiproxy:2.12.0`, and `traefik/whoami:v1.10`. The mock IdP is its own Clojure project under `test/support/mock-idp`, port 8088, and is not on the gateway classpath. Product image bases are `eclipse-temurin:21-jdk-jammy`, `busybox:1.36.1-musl`, and `gcr.io/distroless/base-debian12`.
 Why: Dated or version tags keep the dev stack reproducible. Leaving the mock IdP out of the uberjar keeps the production classpath free of a test issuer.
-Revert: Change the tags in `docker/docker-compose.yml`. Move the mock into `modules/` only if a later milestone needs it on the main classpath.
+Revert: Change the tags in `docker/docker-compose.yml`. Move the mock into `modules/` only if a later milestone needs it on the main classpath. The LocalStack tag in this choice is superseded by A-17.
+
+### A-7 (2026-10-02, M2) Lambda URL-connection client
+
+Context: API-009 needs the AWS SDK for Lambda. The SDK's default Netty client would put a second Netty on the classpath beside Aleph 0.9.11 (Netty 4.1.137).
+Choice: Depend on `software.amazon.awssdk/lambda` and `url-connection-client` 2.55.11, and exclude `netty-nio-client` and `apache5-client`. An optional `:endpoint` on the Lambda upstream selects LocalStack or another compatible endpoint and uses static test credentials. One client is cached per region, endpoint and timeout. No client is built at namespace load. The client class is settled by A-18.
+Why: Aleph keeps the only Netty. The endpoint override is how the 0.x tests and the compose stack reach LocalStack without a second HTTP stack.
+Revert: Remove `:endpoint` and the exclusions, and accept the SDK's Netty client only if it is pinned to 4.1.137.
+
+### A-8 (2026-10-02, M2) Size limits combine by the minimum
+
+Context: data-plane-proxy-core.md says limits exist at several levels. It does not say how they combine, or which status a header-block overrun gets. The 6 MB figure in the Lambda section is the invoke payload cap, not an HTTP body cap.
+Choice: The effective cap for each of request body, response body and header block is the minimum value set on the snapshot, the route's API and the route. An absent value does not raise a tighter one. Header overrun is 413 `limits.headers_too_large`. A known request `Content-Length` over the cap is 413 `limits.body_too_large`. A known response `Content-Length` over the cap is 502 `limits.response_too_large`. Bodies without a length are not buffered to enforce the cap.
+Why: A route must not be able to raise a global cap. Buffering every body to measure it would break streaming.
+Revert: Combine limits with a different operator in `befive.gateway.limits/effective`, and buffer bodies only if a later decision requires it.
+
+### A-9 (2026-10-02, M2) Idempotent retries and the 20 percent budget
+
+Context: 02 §8 allows retries for idempotent requests inside a 20 percent budget. It does not list the methods, and it does not say whether POST can opt in.
+Choice: The default methods are GET, HEAD, OPTIONS, PUT, DELETE and TRACE. POST and PATCH retry only when the upstream sets `:retry-methods`, which replaces that default. The budget admits `ceil(0.2 * requests)` retries, so the first request may retry once and the ratio settles at 20 percent. HTTP retries only connection failures (connect timeout, connect failed, TLS). Lambda retries only a result whose `:retryable` flag is true, and never a function error or a timeout.
+Why: RFC 9110's idempotent methods are the safe default. A floor of 20 percent would reject every retry until the fifth request, which makes the budget unusable for a single call.
+Revert: Change `idempotent-methods` and `reserve-retry!` in `befive.gateway.balance`.
+
+### A-10 (2026-10-02, M2) reitit-core 0.11.0
+
+Context: 01 names reitit as the router. Maven Central has no `metosin/reitit` artifact that carries the linear router, and `metosin/reitit-core` 0.11.0 is EPL-1.0. The trie router throws when a static template and a parameter template share a prefix.
+Choice: Depend on `metosin/reitit-core` 0.11.0. Compile with `{:router r/linear-router :conflicts nil}` and sort static templates ahead of parameter templates. EPL is flagged for review and does not fail the license scan.
+Why: This is the documented router, and the linear router matches the reference oracle without rejecting legal gateway templates.
+Revert: Replace the dependency and `befive.gateway.router/router-for`.
+
+### A-11 (2026-10-02, M2) Aleph timeout mapping
+
+Context: Upstreams have connect, header and idle timeouts. Aleph's `:read-timeout` applies until the response body completes, which would cancel an SSE stream.
+Choice: `:connect-timeout-ms` is the connect timeout and the pool timeout. `:read-timeout-ms` is Aleph's `:request-timeout` (time to response headers). `:idle-timeout-ms` is the pool connection idle timeout. The gateway does not set Aleph `:read-timeout`. The data-plane server uses `:executor :none` so the handler returns a deferred on the event loop. Ops and admin servers stay on Aleph's default executor.
+Why: Header timeout and idle timeout are the two clocks the docs name, and SSE has to stay open past the header timeout.
+Revert: Pass a different Aleph timeout from `befive.gateway.proxy/send-once`.
+
+### A-12 (2026-10-02, M2) Consistent-hash key and weights
+
+Context: 02 §8 names consistent hash and smooth weighted round-robin. It does not define the hash input, the ring size, or whether weight applies to every algorithm.
+Choice: The hash key is the path plus the query string. The ring has 64 virtual points per target, ordered by unsigned FNV-1a 64. Weight applies only to smooth weighted round-robin. Least-requests ignores weight and breaks ties toward the smaller target id. A panic threshold of 0 never panics.
+Why: Path plus query is stable for a retry of the same request. Sixty-four points is enough for a handful of targets without a large ring.
+Revert: Change `befive.gateway.balance/hash-key` and `hash-pick`.
+
+### A-13 (2026-10-02, M2) Active probes are opt-in
+
+Context: Health checks are in M2. The docs do not say that every target is probed, or which client sends the probe.
+Choice: Active probes run only when the upstream has `:health` with `:interval-ms` (path defaults to `/`, unhealthy-after defaults to 2). The probe is a JDK `HttpClient` GET with redirects disabled, on a one-thread scheduler every second, not on the proxy pool and not on the event loop. Passive ejection always runs, with the same default of two failures.
+Why: A target without `:health` is a normal upstream. Probing it would create traffic the operator did not ask for.
+Revert: Start probes for every target in `befive.gateway.health/start`.
+
+### A-14 (2026-10-02, M2) Last-known-good file format
+
+Context: config-revisions.md says a gateway starts from the last good revision when the database is down. It does not define the file bytes. There are no DEKs until secrets land in M10.
+Choice: Each file is gzip of EDN `{:sha256 :revision :document}`. `:document` is the `pr-str` of the snapshot, and `:sha256` is the SHA-256 of that string. Writes use a temp file, `FileChannel.force`, and an atomic move. The newest three `snapshot-<rev>.edn.gz` files are kept. Reads bind `*read-eval*` to false and reject a hash mismatch. A failed write is swallowed.
+Why: `pr-str` of a map is not stable across a later read and print, so the hash has to cover the exact string that was stored. Plain EDN is enough until snapshots contain secrets.
+Revert: Change `befive.gateway.lkg` and delete the files under the LKG directory.
+
+### A-15 (2026-10-02, M2) Snapshot file outranks the database
+
+Context: Until the Admin API exists, a design-partner node needs a config source. config-revisions.md makes PostgreSQL the source of truth once it is reachable.
+Choice: When `BEFIVE_SNAPSHOT_FILE` is set, that file is the only document source and the node does not apply database snapshots. Otherwise the node loads the newest `config_snapshot`, applies a contiguous `config_change` delta, and falls back to LKG if the database is down or the config tables are missing. `BEFIVE_LKG_DIR` defaults to `/var/lib/befive/lkg`. Readiness stays as in M1: a database outage still makes `/readyz` return 503 while `/healthz` stays 200. Feature level stays 1.
+Why: A mounted file lets the compose demo serve a route before the Admin API can write one. The database remains the source of truth as soon as the file is unset.
+Revert: Ignore `:snapshot-file` in `befive.gateway.sync/start-load!`.
+
+### A-16 (2026-10-02, M2) Static routes skip the linear router
+
+Context: A-10 compiles every template with reitit's linear router. That router builds a trie per template, so 2,000 static routes compile in about 300 ms on the first call. The M2 budget is 200 ms. A static template and a parameter template that share a prefix also conflict in the trie router.
+Choice: Templates with no parameters and no splat are a hash map keyed by the path. Parameter and splat templates still use `{:router r/linear-router :conflicts nil}`, ordered by specificity. An exact static hit wins over a dynamic template, including when the method does not match (405, not a fall-through). A 405 still carries the path parameters.
+Why: The hash map compiles and matches in constant time, and pulling static templates out of the trie is what makes `/orders/new` and `/orders/:id` legal. Match order stays the one the oracle uses.
+Revert: Send every template through `router-for`'s linear router again.
+
+### A-17 (2026-10-02, M2) LocalStack community tag
+
+Context: A-6 pinned `localstack/localstack:2026.08.5`. That image exits 55 on start when `LOCALSTACK_AUTH_TOKEN` is unset. LocalStack retired the unauthenticated community image on 2026-03-23, and calendar tags from that date require a token. This environment has no token.
+Choice: Compose and the Lambda integration test use `localstack/localstack:4.14.0`, the last community release (February 2026). Compose still requests services `iam,kms,lambda`. The test requests `lambda` and still binds the Docker socket so the Lambda executor can start a function container.
+Why: 4.14.0 boots without a token and still accepts a payload 2.0 invoke, which is all API-009 needs in 0.x.
+Revert: Set `LOCALSTACK_AUTH_TOKEN` and restore `localstack/localstack:2026.08.5` in `docker/docker-compose.yml` and `lambda_integration_test.clj`.
+
+### A-18 (2026-10-02, M2) Lambda uses the sync client off the event loop
+
+Context: A-7 keeps the AWS SDK off Netty by using `UrlConnectionHttpClient`. That client implements `SdkHttpClient`. `LambdaAsyncClient.httpClient` requires `SdkAsyncHttpClient`, and passing the URL-connection client throws `ClassCastException` before any invoke. The design's async client needs the SDK Netty client or the AWS CRT client.
+Choice: Build a synchronous `LambdaClient` with `UrlConnectionHttpClient`. `befive.gateway.lambda.aws/invoke` runs the call through `befive.gateway.block/off-loop`, which hops to a virtual thread when the caller is on the Netty event loop. The transport still returns a Manifold deferred of a payload map or `{:reason :retryable}`.
+Why: One Netty stays on the classpath, and the event loop does not block on `Invoke`.
+Revert: Add an async HTTP client pinned to Netty 4.1.137, or the AWS CRT client, and build `LambdaAsyncClient` again.
+
+### A-19 (2026-10-02, M2) LocalStack Lambda needs the Docker socket without SELinux confinement
+
+Context: LocalStack 4.14 runs Lambda functions by starting containers through the host Docker socket. Mounting `/var/run/docker.sock` is not enough on this host. The socket is labeled `container_file_t`, SELinux is enforcing, and a root process in the container gets `EACCES` on connect. LocalStack then marks the function `Failed` with "Docker not available".
+Choice: The Lambda integration test and the compose LocalStack service bind `/var/run/docker.sock` and set the Docker security option `label=disable`. That option is a no-op where SELinux is disabled.
+Why: The function runtime container is started by the host daemon. Disabling the label on the LocalStack container is the usual way to let it use the socket without relabeling the host socket.
+Revert: Remove `label=disable` and the compose socket mount. On an enforcing host, relabel the socket so a confined container may connect.

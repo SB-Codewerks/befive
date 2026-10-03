@@ -5,10 +5,12 @@
    :test-paths ["modules/schema/test"
                 "modules/core/test"
                 "modules/control-plane/test"
-                "modules/app/test"]}
+                "modules/app/test"
+                "modules/gateway/test"]}
   {:id :generative
    :focus-meta [:generative]
-   :test-paths ["modules/schema/test"]}
+   :test-paths ["modules/schema/test"
+                "modules/gateway/test"]}
   {:id :integration
    :focus-meta [:integration]
    :test-paths ["test/integration"]}]}

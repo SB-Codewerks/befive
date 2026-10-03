@@ -1,5 +1,5 @@
 # Local design-partner stack. Image tags for the dev dependencies
-# are recorded as A-6 in docs/decisions.md.
+# are recorded as A-6 in docs/decisions.md. The LocalStack tag is A-17.
 services:
   postgres:
     image: postgres:16-alpine
@@ -21,11 +21,15 @@ services:
       - "6379:6379"
 
   localstack:
-    image: localstack/localstack:2026.08.5
+    image: localstack/localstack:4.14.0
     environment:
       SERVICES: iam,kms,lambda
     ports:
       - "4566:4566"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    security_opt:
+      - label=disable
 
   toxiproxy:
     image: ghcr.io/shopify/toxiproxy:2.12.0
@@ -57,7 +61,10 @@ services:
       BEFIVE_DB_USER: befive
       BEFIVE_DB_PASSWORD: befive
       BEFIVE_DB_STARTUP_TIMEOUT_MS: "60000"
+      BEFIVE_SNAPSHOT_FILE: /config/snapshot.edn
       HOME: /tmp
+    volumes:
+      - ./snapshot.edn:/config/snapshot.edn:ro
     read_only: true
     tmpfs:
       - /tmp

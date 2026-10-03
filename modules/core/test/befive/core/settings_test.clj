@@ -60,6 +60,15 @@
     (is (= 78 (:exit result)))
     (is (str/includes? (:message result) "[:role]"))))
 
+(deftest blank-snapshot-file-is-removed
+  (let [result (node/prepare-map
+                (assoc (node/example)
+                       :snapshot-file "  "
+                       :lkg-dir "/tmp/befive-lkg"))]
+    (is (nil? (:exit result)) (:message result))
+    (is (not (contains? (:settings result) :snapshot-file)))
+    (is (= "/tmp/befive-lkg" (:lkg-dir (:settings result))))))
+
 (deftest bundled-settings-prepare
   (let [result (node/prepare)]
     (is (nil? (:exit result)) (:message result))

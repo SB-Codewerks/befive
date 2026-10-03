@@ -47,8 +47,8 @@
   nil)
 
 (defmethod ig/init-key :befive/gateway-http
-  [_ {:keys [settings]}]
-  (gateway/start settings))
+  [_ {:keys [settings db]}]
+  (gateway/start {:settings settings :db db}))
 
 (defmethod ig/halt-key! :befive/gateway-http
   [_ component]
@@ -94,4 +94,7 @@
                             :befive/admin-http
                             {:settings (ig/ref :befive/settings)})
       gateway? (assoc :befive/gateway-http
-                      {:settings (ig/ref :befive/settings)}))))
+                      (cond-> {:settings (ig/ref :befive/settings)
+                               :db (ig/ref :befive/db)}
+                        control-plane?
+                        (assoc :migrations (ig/ref :befive/migrations)))))))

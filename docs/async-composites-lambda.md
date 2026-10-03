@@ -14,8 +14,8 @@
 
 - Everything above the terminal handler (authn, policies, limits, logging) is the same as for HTTP upstreams. **Function URLs are plain `:http` upstreams.**
 - **Invocation:**
-  - `LambdaAsyncClient` `Invoke` (RequestResponse). The `CompletableFuture` is converted to a Manifold deferred.
-  - Credentials come from the default chain (ECS task role, IRSA or Pod Identity). The role needs `lambda:InvokeFunction` on the qualified ARN.
+  - Synchronous `LambdaClient` `Invoke` (RequestResponse) on `UrlConnectionHttpClient` (A-7, A-18). The call runs through `befive.gateway.block/off-loop`, and the transport returns a Manifold deferred.
+  - Credentials come from the default chain (ECS task role, IRSA or Pod Identity). The role needs `lambda:InvokeFunction` on the qualified ARN. An `:endpoint` override uses static test credentials for LocalStack.
 - **Event:** API Gateway HTTP API **payload format 2.0**:
   - `routeKey "GET /orders/{id}"`, `rawPath`, `rawQueryString`, `cookies`
   - lowercased, comma-joined headers, including the identity headers and the internal JWT
@@ -43,9 +43,8 @@
 - **Metrics:** `LambdaInvocations`, `LambdaErrors`, `LambdaThrottles`, `LambdaDuration`, `LambdaConcurrencyRejected`.
 - **Access fields:** `upstream_kind=lambda`, `lambda_request_id`, `lambda_function_error`.
 - **Netty (01 R3):**
-  - Pin one `io.netty` version across Aleph and the SDK, and fail CI on non-convergence.
-  - The SDK gets its own `SdkEventLoopGroup` (2 threads).
-  - Fallbacks: `:aws {:async-http-client :crt}` or `:url-connection`.
+  - 0.x does not put the AWS SDK on Netty. The URL-connection client runs on a virtual thread (A-18), so there is no SDK event-loop group.
+  - A later switch to the async client must pin one `io.netty` version across Aleph and the SDK and fail CI on non-convergence. The CRT client is the other fallback.
 - **Tests:**
   - LocalStack Lambda in Testcontainers: event conformance against recorded API Gateway 2.0 events, the base64 rules, response inference, each error row, throttling and retries, the limiter and client timeouts.
   - The nightly run against real Lambda waits for the owner's AWS test account (owner default).

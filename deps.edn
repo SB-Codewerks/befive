@@ -28,15 +28,25 @@
         net.logstash.logback/logstash-logback-encoder
         {:mvn/version "9.0"}
         com.fasterxml.jackson.core/jackson-core {:mvn/version "2.22.3"}
-com.fasterxml.jackson.core/jackson-databind {:mvn/version "2.22.3"}
-com.fasterxml.jackson.datatype/jackson-datatype-jsr310 {:mvn/version "2.22.3"}
-tools.jackson.core/jackson-core {:mvn/version "3.2.3"}
-tools.jackson.core/jackson-databind {:mvn/version "3.2.3"}
-        }
+        com.fasterxml.jackson.core/jackson-databind {:mvn/version "2.22.3"}
+        com.fasterxml.jackson.datatype/jackson-datatype-jsr310
+        {:mvn/version "2.22.3"}
+        tools.jackson.core/jackson-core {:mvn/version "3.2.3"}
+        tools.jackson.core/jackson-databind {:mvn/version "3.2.3"}
+        metosin/reitit-core {:mvn/version "0.11.0"}
+        software.amazon.awssdk/lambda
+        {:mvn/version "2.55.11"
+         :exclusions [software.amazon.awssdk/netty-nio-client
+                      software.amazon.awssdk/apache5-client]}
+        software.amazon.awssdk/url-connection-client
+        {:mvn/version "2.55.11"
+         :exclusions [software.amazon.awssdk/netty-nio-client
+                      software.amazon.awssdk/apache5-client]}}
  :aliases
  {:dev
   {:extra-paths ["modules/schema/test"
                  "modules/core/test"
+                 "modules/gateway/test"
                  "modules/control-plane/test"
                  "modules/app/test"
                  "test/integration"]
@@ -45,6 +55,7 @@ tools.jackson.core/jackson-databind {:mvn/version "3.2.3"}
   :test
   {:extra-paths ["modules/schema/test"
                  "modules/core/test"
+                 "modules/gateway/test"
                  "modules/control-plane/test"
                  "modules/app/test"
                  "test/integration"]

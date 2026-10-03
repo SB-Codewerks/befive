@@ -40,6 +40,26 @@
     befive.core.settings
     befive.core.healthcheck
     befive.core.version
+    befive.gateway.block
+    befive.gateway.client-ip
+    befive.gateway.errors
+    befive.gateway.executor
+    befive.gateway.headers
+    befive.gateway.router
+    befive.gateway.net
+    befive.gateway.balance
+    befive.gateway.limits
+    befive.gateway.access-log
+    befive.gateway.lambda
+    befive.gateway.lambda.aws
+    befive.gateway.targets
+    befive.gateway.health
+    befive.gateway.compile
+    befive.gateway.table
+    befive.gateway.lkg
+    befive.gateway.sync
+    befive.gateway.proxy
+    befive.gateway.pipeline
     befive.gateway.http
     befive.gateway.embed
     befive.cp.http

@@ -90,7 +90,8 @@
 (defn- dissoc-blanks
   [settings]
   (cond-> settings
-    (blank-str? (:redis-uri settings)) (dissoc :redis-uri)))
+    (blank-str? (:redis-uri settings)) (dissoc :redis-uri)
+    (blank-str? (:snapshot-file settings)) (dissoc :snapshot-file)))
 
 (defn normalize
   "Coerce a raw settings map. Returns `{:settings map}` or

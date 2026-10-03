@@ -1,0 +1,12 @@
+{:revision 1
+ :routes [{:id "echo-root"
+           :methods #{:get :head :post :put :patch :delete :options}
+           :path "/"
+           :upstream "echo"}
+          {:id "echo"
+           :methods #{:get :head :post :put :patch :delete :options}
+           :path "/*path"
+           :upstream "echo"}]
+ :upstreams [{:id "echo"
+              :kind :http
+              :targets [{:url "http://echo:80"}]}]}

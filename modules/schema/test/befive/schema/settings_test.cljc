@@ -27,7 +27,9 @@
     (is (= 9901 (:ops-port value)))
     (is (= 8080 (:gateway-port value)))
     (is (= 9000 (:admin-port value)))
-    (is (= 60000 (:db-startup-timeout-ms value)))))
+    (is (= 60000 (:db-startup-timeout-ms value)))
+    (is (= "/var/lib/befive/lkg" (:lkg-dir value)))
+    (is (not (contains? value :snapshot-file)))))
 
 (deftest role-enum-message
   (let [explained (s/explain-data ::settings/settings
